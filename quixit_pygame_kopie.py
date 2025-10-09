@@ -105,7 +105,6 @@ def draw_board(screen, board, measure_uses, winner_text=None, current_player=Non
     if winner_text:
         font = pygame.font.SysFont(None, 60, bold=True)
         text = font.render(winner_text, True, (255, 255, 255))
-        # Hintergrundbalken zeichnen
         text_rect = text.get_rect(center=(WIDTH//2, 60))
         pygame.draw.rect(screen, (0, 0, 0), text_rect.inflate(40, 20))
         screen.blit(text, text_rect)
@@ -125,7 +124,6 @@ def measure_superpositions(board, superpos_pairs):
                 r, c = pos
                 board[r][c] = player if result[idx] == '0' else " "
         else:
-            # For single stones, just use quantum result
             result = qiskit_measure(n)
             for idx, pos in enumerate(positions):
                 r, c = pos
@@ -164,15 +162,14 @@ def main(n_superpos=2):
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, HEIGHT))
     pygame.display.set_caption("Quixit Pygame")
-    # font wird nicht verwendet
     board = create_board()
     current_player = "X"
     game_over = False
 
     superpos_count = 0
-    last_superpos_cols = []  # Merkt sich die Spalten der gesetzten Steine
-    superpos_groups = []  # Liste von [(r1, c1), (r2, c2), ..., "X" oder "O"]
-    superpos_temp = []   # Zwischenspeicher für aktuellen Zug
+    last_superpos_cols = []
+    superpos_groups = []
+    superpos_temp = []
     measure_uses = {"X": 0, "O": 0}
     MAX_MEASURE = 3
 
@@ -191,11 +188,9 @@ def main(n_superpos=2):
                 if btn.collidepoint(x, y) and measure_uses[current_player] < MAX_MEASURE:
                     if superpos_count > 0:
                         continue
-                    # Miss alle Paare und ggf. einzelne Steine
                     measure_superpositions(board, superpos_groups)
                     apply_gravity(board)
                     measure_uses[current_player] += 1
-                    # Sieg-Check nach Messung:
                     x_win = check_win(board, "X")
                     o_win = check_win(board, "O")
                     if x_win and o_win:
@@ -210,9 +205,7 @@ def main(n_superpos=2):
                     elif all(board[0][c] != " " for c in range(COLS)):
                         winner_text = "Unentschieden!"
                         game_over = True
-                    # Nach Messung ist der Zug beendet, Spielerwechsel
                     current_player = "O" if current_player == "X" else "X"
-                    # Gradient sofort aktualisieren
                     draw_board(screen, board, measure_uses, winner_text, current_player)
                     continue
                 board_offset_x = (WINDOW_WIDTH - WIDTH) // 2
@@ -221,7 +214,6 @@ def main(n_superpos=2):
                     row = get_available_row(board, col)
                     if row is not None:
                         if event.button == 1:
-                            # Prevent stacking two superposition stones in the same column in one turn
                             if col in last_superpos_cols:
                                 continue
                             last_superpos_cols.append(col)
@@ -237,12 +229,10 @@ def main(n_superpos=2):
                                     last_superpos_cols = []
                                     current_player = "O" if current_player == "X" else "X"
                                 else:
-                                    # Remove last stone
                                     r_last, c_last = superpos_temp.pop()
                                     board[r_last][c_last] = " "
                                     superpos_count -= 1
                                     last_superpos_cols.pop()
-                            # Automatische Messung nach 6 Zügen (3 pro Team), aber nur wenn beide keine Messungen mehr übrig haben
                             if turn_count % (N_SUPERPOS*2) == 0 and superpos_groups and measure_uses["X"] >= MAX_MEASURE and measure_uses["O"] >= MAX_MEASURE:
                                 if superpos_temp:
                                     superpos_groups.append(tuple(superpos_temp + [current_player]))
@@ -251,15 +241,12 @@ def main(n_superpos=2):
                                     last_superpos_cols = []
                                 measure_superpositions(board, superpos_groups)
                                 apply_gravity(board)
-            # --- Tastatur-Eingabe für Spalten 1-7 und Messung mit Enter ---
             if event.type == pygame.KEYDOWN and not game_over:
-                # Spaltenwahl mit 1-7
                 if pygame.K_1 <= event.key <= pygame.K_7:
                     col = event.key - pygame.K_1
                     if 0 <= col < COLS:
                         row = get_available_row(board, col)
                         if row is not None:
-                            # Prevent stacking two superposition stones in the same column in one turn
                             if col in last_superpos_cols:
                                 continue
                             last_superpos_cols.append(col)
@@ -275,12 +262,10 @@ def main(n_superpos=2):
                                     last_superpos_cols = []
                                     current_player = "O" if current_player == "X" else "X"
                                 else:
-                                    # Remove last stone
                                     r_last, c_last = superpos_temp.pop()
                                     board[r_last][c_last] = " "
                                     superpos_count -= 1
                                     last_superpos_cols.pop()
-                            # Automatische Messung nach N_SUPERPOS*2 Zügen
                             if turn_count % (N_SUPERPOS*2) == 0 and superpos_groups and measure_uses["X"] >= MAX_MEASURE and measure_uses["O"] >= MAX_MEASURE:
                                 if superpos_temp:
                                     superpos_groups.append(tuple(superpos_temp + [current_player]))
@@ -289,7 +274,6 @@ def main(n_superpos=2):
                                     last_superpos_cols = []
                                 measure_superpositions(board, superpos_groups)
                                 apply_gravity(board)
-                # Messung mit Enter
                 if event.key == pygame.K_RETURN and measure_uses[current_player] < MAX_MEASURE:
                     if superpos_count > 0:
                         info_text = f"Setze zuerst alle {N_SUPERPOS} Superpositionssteine!"
@@ -316,9 +300,7 @@ def main(n_superpos=2):
                     elif all(board[0][c] != " " for c in range(COLS)):
                         winner_text = "Unentschieden!"
                         game_over = True
-                    # Spielerwechsel nach jeder Messung
                     current_player = "O" if current_player == "X" else "X"
-                    # Gradient sofort aktualisieren
                     draw_board(screen, board, measure_uses, winner_text, current_player)
         if check_win(board, "X"):
             winner_text = "Rot gewinnt!"
@@ -332,17 +314,14 @@ def main(n_superpos=2):
 
         button_rects = draw_board(screen, board, measure_uses, winner_text, current_player)
         if game_over:
-            # Winner-Screen anzeigen, bis der Nutzer das Fenster schließt
             while True:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
-                        # Rückkehr ins Menü
                         import subprocess, os
                         menu_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'pygame-q-c4/quixit_main.py'))
                         subprocess.Popen([sys.executable, menu_path])
                         sys.exit()
-                # Winner-Text bleibt sichtbar
                 button_rects = draw_board(screen, board, measure_uses, winner_text, current_player)
                 pygame.time.wait(100)
 
