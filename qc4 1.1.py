@@ -11,16 +11,27 @@ backend = Aer.get_backend("aer_simulator")
 
 
 ROWS, COLS = 6, 7
-CELL_SIZE = 80
-RADIUS = CELL_SIZE // 2 - 5
-BASE_HEIGHT = 720
-BASE_WIDTH = int(BASE_HEIGHT * 16 / 9)
-CELL_SIZE = BASE_HEIGHT // (ROWS + 1)
-WIDTH = COLS * CELL_SIZE
-HEIGHT = (ROWS + 1) * CELL_SIZE
-BTN_WIDTH = 120
-BTN_HEIGHT = 32
-WINDOW_WIDTH = BASE_WIDTH
+# base/original sizes (used to compute a single uniform scale)
+ORIGINAL_CELL = 80
+ORIGINAL_WIDTH = COLS * ORIGINAL_CELL     # 7 * 80 = 560
+ORIGINAL_HEIGHT = (ROWS + 1) * ORIGINAL_CELL  # 7 * 80 = 560
+ORIGINAL_GRADIENT_HEIGHT = 180
+ORIGINAL_BTN_WIDTH = 120
+ORIGINAL_BTN_HEIGHT = 32
+ORIGINAL_FONT_SIZE = 22
+
+# current (derived) sizes - initialized to originals or sensible defaults
+CELL_SIZE = ORIGINAL_CELL
+WIDTH = ORIGINAL_WIDTH
+HEIGHT = 720
+BTN_WIDTH = ORIGINAL_BTN_WIDTH
+BTN_HEIGHT = ORIGINAL_BTN_HEIGHT
+WINDOW_WIDTH = 1280
+# small visual scale adjustments (make board area and buttons slightly smaller)
+BOARD_VISUAL_SCALE = 0.95  # scale applied to the cell size for visual spacing
+BTN_VISUAL_SCALE = 0.9     # scale applied to button sizes
+HOLE_SCALE = 0.85         # scale applied to stone hole radius (make holes smaller)
+RADIUS = max(4, int((CELL_SIZE // 2 - 5) * HOLE_SCALE))
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -60,7 +71,8 @@ def check_win(board, piece):
 
 def draw_board(screen, board, measure_uses, winner_text=None, current_player=None):
     screen.fill(BG)
-    gradient_height = 180
+    # gradient and fonts scale with CELL_SIZE so proportions stay the same
+    gradient_height = max(8, int(ORIGINAL_GRADIENT_HEIGHT * CELL_SIZE / ORIGINAL_CELL))
     gradient_surface = pygame.Surface((WINDOW_WIDTH, gradient_height), pygame.SRCALPHA)
     grad_color = (220, 220, 0) if current_player == "O" else (220, 0, 0)
     for y in range(gradient_height):
@@ -85,28 +97,29 @@ def draw_board(screen, board, measure_uses, winner_text=None, current_player=Non
             pygame.draw.circle(screen, color, (x, y), RADIUS)
             pygame.draw.circle(screen, BLACK, (x, y), RADIUS, 2)
     button_rects = {}
-    font_btn = pygame.font.SysFont(None, 22)
-    btn_x_x = board_offset_x - BTN_WIDTH - 30
+    scale = CELL_SIZE / ORIGINAL_CELL
+    font_btn = pygame.font.SysFont(None, max(12, int(ORIGINAL_FONT_SIZE * scale)))
+    btn_x_x = board_offset_x - BTN_WIDTH - int(30 * scale)
     btn_x_y = CELL_SIZE + CELL_SIZE // 2 - BTN_HEIGHT // 2
     btn_x = pygame.Rect(btn_x_x, btn_x_y, BTN_WIDTH, BTN_HEIGHT)
     pygame.draw.rect(screen, (220, 120, 120), btn_x)
     text_x = font_btn.render(f"Messungen: ({3-measure_uses['X']} übrig)", True, (255, 255, 255))
-    text_x_rect = text_x.get_rect(center=(btn_x.x + BTN_WIDTH//2, btn_x.y + BTN_HEIGHT + 16))
+    text_x_rect = text_x.get_rect(center=(btn_x.x + BTN_WIDTH//2, btn_x.y + BTN_HEIGHT + int(16 * scale)))
     screen.blit(text_x, text_x_rect)
     button_rects["X"] = btn_x
-    btn_o_x = board_offset_x + WIDTH + 30
+    btn_o_x = board_offset_x + WIDTH + int(30 * scale)
     btn_o_y = CELL_SIZE + CELL_SIZE // 2 - BTN_HEIGHT // 2
     btn_o = pygame.Rect(btn_o_x, btn_o_y, BTN_WIDTH, BTN_HEIGHT)
     pygame.draw.rect(screen, (220, 220, 120), btn_o)
     text_o = font_btn.render(f"Messungen: ({3-measure_uses['O']} übrig)", True, (255, 255, 255))
-    text_o_rect = text_o.get_rect(center=(btn_o.x + BTN_WIDTH//2, btn_o.y + BTN_HEIGHT + 16))
+    text_o_rect = text_o.get_rect(center=(btn_o.x + BTN_WIDTH//2, btn_o.y + BTN_HEIGHT + int(16 * scale)))
     screen.blit(text_o, text_o_rect)
     button_rects["O"] = btn_o
     if winner_text:
-        font = pygame.font.SysFont(None, 60, bold=True)
+        font = pygame.font.SysFont(None, max(30, int(60 * scale)), bold=True)
         text = font.render(winner_text, True, (255, 255, 255))
-        text_rect = text.get_rect(center=(WIDTH//2, 60))
-        pygame.draw.rect(screen, (0, 0, 0), text_rect.inflate(40, 20))
+        text_rect = text.get_rect(center=(WIDTH//2, int(60 * scale)))
+        pygame.draw.rect(screen, (0, 0, 0), text_rect.inflate(int(40 * scale), int(20 * scale)))
         screen.blit(text, text_rect)
     pygame.display.flip()
     return button_rects
@@ -160,11 +173,21 @@ def qiskit_measure(n_qubits=None):
 
 def main(n_superpos=2):
     turn_count = 0
-    global N_SUPERPOS
+    global N_SUPERPOS, WINDOW_WIDTH, HEIGHT, CELL_SIZE, RADIUS, WIDTH, BTN_WIDTH, BTN_HEIGHT
     N_SUPERPOS = n_superpos
     pygame.init()
-    screen = pygame.display.set_mode((WINDOW_WIDTH, HEIGHT))
+   
+    screen = pygame.display.set_mode((WINDOW_WIDTH, HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("Quixit Pygame")
+
+   
+    info = pygame.display.Info()
+    scale = min(WINDOW_WIDTH / ORIGINAL_WIDTH, HEIGHT / ORIGINAL_HEIGHT)
+    CELL_SIZE = max(8, int(ORIGINAL_CELL * scale * BOARD_VISUAL_SCALE))
+    RADIUS = max(4, int((CELL_SIZE // 2 - 5) * HOLE_SCALE))
+    WIDTH = COLS * CELL_SIZE
+    BTN_WIDTH = max(24, int(ORIGINAL_BTN_WIDTH * scale * BTN_VISUAL_SCALE))
+    BTN_HEIGHT = max(12, int(ORIGINAL_BTN_HEIGHT * scale * BTN_VISUAL_SCALE))
     board = create_board()
     current_player = "X"
     game_over = False
@@ -185,6 +208,16 @@ def main(n_superpos=2):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            # handle window resize: recompute sizes but keep proportions
+            elif event.type == pygame.VIDEORESIZE:
+                WINDOW_WIDTH = event.w
+                HEIGHT = event.h
+                scale = max(0.1, min(WINDOW_WIDTH / ORIGINAL_WIDTH, HEIGHT / ORIGINAL_HEIGHT))
+                CELL_SIZE = max(8, int(ORIGINAL_CELL * scale * BOARD_VISUAL_SCALE))
+                RADIUS = max(4, int((CELL_SIZE // 2 - 5) * HOLE_SCALE))
+                WIDTH = COLS * CELL_SIZE
+                BTN_WIDTH = max(24, int(ORIGINAL_BTN_WIDTH * scale * BTN_VISUAL_SCALE))
+                BTN_HEIGHT = max(12, int(ORIGINAL_BTN_HEIGHT * scale * BTN_VISUAL_SCALE))
             if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 x, y = event.pos
                 btn = button_rects[current_player]
@@ -245,6 +278,24 @@ def main(n_superpos=2):
                                 measure_superpositions(board, superpos_groups)
                                 apply_gravity(board)
             if event.type == pygame.KEYDOWN and not game_over:
+                # fullscreen toggle (F11) and quit (ESC)
+                if event.key == pygame.K_F11:
+                    if screen.get_flags() & pygame.FULLSCREEN:
+                        pygame.display.set_mode((WINDOW_WIDTH, HEIGHT), pygame.RESIZABLE)
+                    else:
+                        pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                        info = pygame.display.Info()
+                        WINDOW_WIDTH = info.current_w
+                        HEIGHT = info.current_h
+                        scale = max(0.1, min(WINDOW_WIDTH / ORIGINAL_WIDTH, HEIGHT / ORIGINAL_HEIGHT))
+                        CELL_SIZE = max(8, int(ORIGINAL_CELL * scale * BOARD_VISUAL_SCALE))
+                        RADIUS = max(4, int((CELL_SIZE // 2 - 5) * HOLE_SCALE))
+                        WIDTH = COLS * CELL_SIZE
+                        BTN_WIDTH = max(24, int(ORIGINAL_BTN_WIDTH * scale * BTN_VISUAL_SCALE))
+                        BTN_HEIGHT = max(12, int(ORIGINAL_BTN_HEIGHT * scale * BTN_VISUAL_SCALE))
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
                 if pygame.K_1 <= event.key <= pygame.K_7:
                     col = event.key - pygame.K_1
                     if 0 <= col < COLS:

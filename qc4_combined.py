@@ -1,6 +1,6 @@
 import pygame
 import sys
- 
+import itertools
 from qiskit import QuantumCircuit
 from qiskit_aer import Aer
 from qiskit_ibm_runtime import QiskitRuntimeService
@@ -8,7 +8,6 @@ from qiskit_ibm_runtime import QiskitRuntimeService
 service = QiskitRuntimeService()
 backend = Aer.get_backend("aer_simulator")
 #backend = service.backend("ibm_brisbane")
-
 
 ROWS, COLS = 6, 7
 CELL_SIZE = 80
@@ -29,6 +28,8 @@ YELLOW = (220, 220, 0)
 PINK = (255, 182, 193)
 LIGHT_YELLOW = (255, 255, 179)
 BG = (21, 24, 26)
+
+N_SUPERPOS = 2
 
 def create_board():
     return [[" " for _ in range(COLS)] for _ in range(ROWS)]
@@ -116,21 +117,22 @@ def measure_superpositions(board, superpos_pairs):
         positions = group[:-1]
         player = group[-1]
         n = len(positions)
+        result = qiskit_measure(n)
+        # Bei 2 Qubits: beide, einer oder keiner kann echt werden
+        # Bei 3/4 Qubits: nur einer wird echt (wie in Kopie-Version)
         if n == 2:
-            result = qiskit_measure(1)
-            r0, c0 = positions[0]
-            r1, c1 = positions[1]
-            if result[0] == '0':
-                board[r0][c0] = player
-                board[r1][c1] = " "
-            else:
-                board[r0][c0] = " "
-                board[r1][c1] = player
-        else:
-            result = qiskit_measure(n)
             for idx, pos in enumerate(positions):
                 r, c = pos
                 board[r][c] = player if result[idx] == '0' else " "
+        else:
+            found = False
+            for idx, pos in enumerate(positions):
+                r, c = pos
+                if not found and result[idx] == '0':
+                    board[r][c] = player
+                    found = True
+                else:
+                    board[r][c] = " "
     superpos_pairs.clear()
 
 def apply_gravity(board):
@@ -145,7 +147,6 @@ def apply_gravity(board):
             else:
                 board[r][c] = " "
 
-N_SUPERPOS = 2
 def qiskit_measure(n_qubits=None):
     n = n_qubits if n_qubits is not None else N_SUPERPOS
     qc = QuantumCircuit(n, n)
@@ -158,24 +159,45 @@ def qiskit_measure(n_qubits=None):
     key = list(counts.keys())[0]
     return key.zfill(n)
 
-def main(n_superpos=2):
-    turn_count = 0
+def main():
     global N_SUPERPOS
-    N_SUPERPOS = n_superpos
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, HEIGHT))
     pygame.display.set_caption("Quixit Pygame")
+    # Auswahl-Buttons für Qubits
+    font = pygame.font.SysFont(None, 36)
+    btns = [pygame.Rect(100 + i*180, 100, 160, 60) for i in range(3)]
+    btn_labels = ["2 Qubits", "3 Qubits", "4 Qubits"]
+    selected = None
+    running = True
+    while running and selected is None:
+        screen.fill(BG)
+        for i, btn in enumerate(btns):
+            pygame.draw.rect(screen, (220,220,220), btn)
+            label = font.render(btn_labels[i], True, (0,0,0))
+            screen.blit(label, (btn.x+20, btn.y+10))
+        pygame.display.flip()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                for i, btn in enumerate(btns):
+                    if btn.collidepoint(event.pos):
+                        selected = i+2
+                        N_SUPERPOS = selected
+                        break
+    # Starte das eigentliche Spiel mit N_SUPERPOS
+    turn_count = 0
     board = create_board()
     current_player = "X"
     game_over = False
-
     superpos_count = 0
     last_superpos_cols = []
     superpos_groups = []
     superpos_temp = []
     measure_uses = {"X": 0, "O": 0}
     MAX_MEASURE = 3
-
     while True:
         winner_text = None
         screen.fill(BG)
@@ -197,7 +219,7 @@ def main(n_superpos=2):
                     x_win = check_win(board, "X")
                     o_win = check_win(board, "O")
                     if x_win and o_win:
-                        winner_text = "Rot gewinnt!" if current_player == "X" else "Gelb gewinnt!"
+                        winner_text = "Rot gewinnt!" if current_player == "X" else "🟡 gewinnt!"
                         game_over = True
                     elif x_win:
                         winner_text = "Rot gewinnt!"
@@ -279,7 +301,6 @@ def main(n_superpos=2):
                                 apply_gravity(board)
                 if event.key == pygame.K_RETURN and measure_uses[current_player] < MAX_MEASURE:
                     if superpos_count > 0:
-                        info_text = f"Setze zuerst alle {N_SUPERPOS} Superpositionssteine!"
                         continue
                     if superpos_temp:
                         superpos_groups.append(tuple(superpos_temp + [current_player]))
@@ -305,17 +326,15 @@ def main(n_superpos=2):
                         game_over = True
                     current_player = "O" if current_player == "X" else "X"
                     draw_board(screen, board, measure_uses, winner_text, current_player)
-        if not game_over:
-            if check_win(board, "X"):
-                winner_text = "Rot gewinnt!"
-                game_over = True
-            elif check_win(board, "O"):
-                winner_text = "Gelb gewinnt!"
-                game_over = True
-            elif all(board[0][c] != " " for c in range(COLS)):
-                winner_text = "Unentschieden!"
-                game_over = True
-
+        if check_win(board, "X"):
+            winner_text = "Rot gewinnt!"
+            game_over = True
+        elif check_win(board, "O"):
+            winner_text = "Gelb gewinnt!"
+            game_over = True
+        elif all(board[0][c] != " " for c in range(COLS)):
+            winner_text = "Unentschieden!"
+            game_over = True
         button_rects = draw_board(screen, board, measure_uses, winner_text, current_player)
         if game_over:
             while True:
@@ -330,6 +349,4 @@ def main(n_superpos=2):
                 pygame.time.wait(100)
 
 if __name__ == "__main__":
-    import sys
-    n_superpos = int(sys.argv[1]) if len(sys.argv) > 1 else 2
-    main(n_superpos)
+    main()

@@ -116,18 +116,11 @@ def measure_superpositions(board, superpos_pairs):
         positions = group[:-1]
         player = group[-1]
         n = len(positions)
-        if n == 2:
-            result = qiskit_measure(2)
-            if result[0] == result[1]:
-                result = result[0] + ('1' if result[0] == '0' else '0')
-            for idx, pos in enumerate(positions):
-                r, c = pos
-                board[r][c] = player if result[idx] == '0' else " "
-        else:
-            result = qiskit_measure(n)
-            for idx, pos in enumerate(positions):
-                r, c = pos
-                board[r][c] = player if result[idx] == '0' else " "
+        result = qiskit_measure(n)
+        # Bei 2 Qubits: beide, einer oder keiner kann echt werden
+        for idx, pos in enumerate(positions):
+            r, c = pos
+            board[r][c] = player if result[idx] == '0' else " "
     superpos_pairs.clear()
 
 def apply_gravity(board):
@@ -142,8 +135,9 @@ def apply_gravity(board):
             else:
                 board[r][c] = " "
 
+import itertools
 N_SUPERPOS = 2
-def qiskit_measure(n_qubits=None):
+def qiskit_measure(n_qubits=None, all_states=False):
     n = n_qubits if n_qubits is not None else N_SUPERPOS
     qc = QuantumCircuit(n, n)
     for i in range(n):
@@ -153,26 +147,49 @@ def qiskit_measure(n_qubits=None):
     result = job.result()
     counts = result.get_counts()
     key = list(counts.keys())[0]
+    if all_states:
+        return ["".join(seq) for seq in itertools.product("01", repeat=n)]
     return key.zfill(n)
 
-def main(n_superpos=2):
-    turn_count = 0
+def main():
     global N_SUPERPOS
-    N_SUPERPOS = n_superpos
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, HEIGHT))
     pygame.display.set_caption("Quixit Pygame")
+    # Auswahl-Buttons für Qubits
+    font = pygame.font.SysFont(None, 36)
+    btns = [pygame.Rect(100 + i*180, 100, 160, 60) for i in range(3)]
+    btn_labels = ["2 Qubits", "3 Qubits", "4 Qubits"]
+    selected = None
+    running = True
+    while running and selected is None:
+        screen.fill(BG)
+        for i, btn in enumerate(btns):
+            pygame.draw.rect(screen, (220,220,220), btn)
+            label = font.render(btn_labels[i], True, (0,0,0))
+            screen.blit(label, (btn.x+20, btn.y+10))
+        pygame.display.flip()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                for i, btn in enumerate(btns):
+                    if btn.collidepoint(event.pos):
+                        selected = i+2
+                        N_SUPERPOS = selected
+                        break
+    # Starte das eigentliche Spiel mit N_SUPERPOS
+    turn_count = 0
     board = create_board()
     current_player = "X"
     game_over = False
-
     superpos_count = 0
     last_superpos_cols = []
     superpos_groups = []
     superpos_temp = []
     measure_uses = {"X": 0, "O": 0}
     MAX_MEASURE = 3
-
     while True:
         winner_text = None
         screen.fill(BG)
@@ -233,7 +250,7 @@ def main(n_superpos=2):
                                     board[r_last][c_last] = " "
                                     superpos_count -= 1
                                     last_superpos_cols.pop()
-                            if turn_count % (N_SUPERPOS*2) == 0 and superpos_groups and measure_uses["X"] >= MAX_MEASURE and measure_uses["O"] >= MAX_MEASURE:
+                            if turn_count % (N_SUPERPOS*3) == 0 and superpos_groups and measure_uses["X"] >= MAX_MEASURE and measure_uses["O"] >= MAX_MEASURE:
                                 if superpos_temp:
                                     superpos_groups.append(tuple(superpos_temp + [current_player]))
                                     superpos_temp = []
@@ -266,7 +283,7 @@ def main(n_superpos=2):
                                     board[r_last][c_last] = " "
                                     superpos_count -= 1
                                     last_superpos_cols.pop()
-                            if turn_count % (N_SUPERPOS*2) == 0 and superpos_groups and measure_uses["X"] >= MAX_MEASURE and measure_uses["O"] >= MAX_MEASURE:
+                            if turn_count % (N_SUPERPOS*3) == 0 and superpos_groups and measure_uses["X"] >= MAX_MEASURE and measure_uses["O"] >= MAX_MEASURE:
                                 if superpos_temp:
                                     superpos_groups.append(tuple(superpos_temp + [current_player]))
                                     superpos_temp = []
@@ -289,7 +306,7 @@ def main(n_superpos=2):
                     x_win = check_win(board, "X")
                     o_win = check_win(board, "O")
                     if x_win and o_win:
-                        winner_text = "Rot gewinnt!" if current_player == "X" else "🟡 gewinnt!"
+                        winner_text = "Rot gewinnt!" if current_player == "X" else "Gelb gewinnt!"
                         game_over = True
                     elif x_win:
                         winner_text = "Rot gewinnt!"
@@ -326,6 +343,4 @@ def main(n_superpos=2):
                 pygame.time.wait(100)
 
 if __name__ == "__main__":
-    import sys
-    n_superpos = int(sys.argv[1]) if len(sys.argv) > 1 else 2
-    main(n_superpos)
+    main()
