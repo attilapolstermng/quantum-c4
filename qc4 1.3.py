@@ -29,7 +29,7 @@ from qiskit import QuantumCircuit
 from qiskit_aer import Aer
 from qiskit_ibm_runtime import QiskitRuntimeService
 
-service = QiskitRuntimeService()
+#service = QiskitRuntimeService()
 backend = Aer.get_backend("aer_simulator")
 #backend = service.backend("ibm_brisbane")
 
