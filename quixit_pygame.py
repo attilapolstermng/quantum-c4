@@ -134,8 +134,9 @@ def main():
         button_rects = draw_board(screen, board, measure_uses, winner_text)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                #pygame.quit()
+                #sys.exit()
+                pass
             if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 x, y = event.pos
                 # --- Button-Klick prüfen ---
