@@ -225,12 +225,12 @@ def get_player_names(screen, screen_width, screen_height):
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                #pygame.quit()
+                pass #sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                    pygame.quit()
-                    sys.exit()
+                    #pygame.quit()
+                    pass #sys.exit()
                 if event.key == pygame.K_TAB:
                     active = 'O' if active == 'X' else 'X'
                 elif event.key == pygame.K_RETURN:
@@ -377,8 +377,8 @@ def main(n_superpos=2):
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                #pygame.quit()
+                pass #sys.exit()
             
             if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 x, y = event.pos
@@ -473,8 +473,8 @@ def main(n_superpos=2):
             
             if event.type == pygame.KEYDOWN and not game_over:
                 if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                    pygame.quit()
-                    sys.exit()
+                    #pygame.quit()
+                    pass #sys.exit()
                 
                 if pygame.K_1 <= event.key <= pygame.K_7:
                     col = event.key - pygame.K_1
@@ -558,13 +558,13 @@ def main(n_superpos=2):
                 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
+                        #pygame.quit()
+                        pass #sys.exit()
                     
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                            pygame.quit()
-                            sys.exit()
+                            #pygame.quit()
+                            pass #sys.exit()
                     
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         mx, my = event.pos
